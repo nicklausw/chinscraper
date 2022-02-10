@@ -10,6 +10,16 @@ let thread = class {
   }
 }
 
+const downloadThread = (name: string, dest: string) => {
+  return new Promise((resolve) => {
+    const dl = new DownloaderHelper(name, dest, {override: true});
+    dl.on("end", () => {
+      resolve(null);
+    });
+    dl.start();
+  });
+}
+
 var list = new Array<any>();
 console.log("Scraper started");
 
@@ -39,45 +49,47 @@ if(!fs.existsSync("logs")) fs.mkdirSync("logs");
 async function downloadFunction() {
   // scrape pol
   console.log("scraping pol...");
-  const dl = new DownloaderHelper("https://a.4cdn.org/pol/catalog.json", ".", {override: true});
-  dl.on("end", () => {
-    var catalog = JSON.parse(fs.readFileSync("catalog.json", "utf-8"));
-    var newThreads = 0;
-    var oldThreads = 0;
-    // go through the 10 pages of threads
-    for(var c = 0; c <= 10; c++) {
-      // go through the 20 possible threads
-      for(var d = 0; d <= 19; d++) {
-        try {
-          var t = new thread(catalog[c]["threads"][d].no, catalog[c]["threads"][d].replies);
-          // try to find thread in list
-          var found = false;
-          for(var e = 0; e < list.length; e++) {
-            if(list[e].no === t.no) {
-              found = true;
-              // same thread!
-              if(list[e].replies < t.replies) {
-                list[e].replies = t.replies;
-                oldThreads++;
-                const dl = new DownloaderHelper("https://a.4cdn.org/pol/thread/" + t.no + ".json", "logs", {override: true});
-                dl.start();
-                break;
-              }
+  await downloadThread("https://a.4cdn.org/pol/catalog.json", ".");
+  var catalog = JSON.parse(fs.readFileSync("catalog.json", "utf-8"));
+  var newThreads = 0;
+  var oldThreads = 0;
+  var downloads = new Array<string>();
+  // go through the 10 pages of threads
+  for(var c = 0; c <= 10; c++) {
+    // go through the 20 possible threads
+    for(var d = 0; d <= 19; d++) {
+      try {
+        var t = new thread(catalog[c]["threads"][d].no, catalog[c]["threads"][d].replies);
+        // try to find thread in list
+        var found = false;
+        for(var e = 0; e < list.length; e++) {
+          if(list[e].no === t.no) {
+            found = true;
+            // same thread!
+            if(list[e].replies < t.replies) {
+              list[e].replies = t.replies;
+              oldThreads++;
+              downloads.push("https://a.4cdn.org/pol/thread/" + t.no + ".json");
+              break;
             }
           }
-          if(found === false) {
-            list.push(t); 
-            const dlnew = new DownloaderHelper("https://a.4cdn.org/pol/thread/" + t.no + ".json", "logs", {override: true});
-            dlnew.start();
-            newThreads++;
-          }
-        } catch { }
-      }
+        }
+        if(found === false) {
+          list.push(t); 
+          downloads.push("https://a.4cdn.org/pol/thread/" + t.no + ".json");
+          newThreads++;
+        }
+      } catch { }
     }
-    var threadCount = newThreads + oldThreads;
-    console.log(threadCount + " threads need to be downloaded; " + newThreads + " are new.");
-  })
-  dl.start();
+  }
+  var threadCount = newThreads + oldThreads;
+  console.log(threadCount + " threads need to be downloaded; " + newThreads + " are new.");
+  if(threadCount == 0) return;
+  do {
+    await downloadThread(downloads[0], "logs");
+    downloads.shift();
+  } while(downloads[0] !== undefined);
+  console.log("done.");
 }
 
 downloadFunction();

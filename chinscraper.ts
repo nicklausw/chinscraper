@@ -1,5 +1,17 @@
 import fs from "fs";
+import axios from "axios";
 import { DownloaderHelper } from "node-downloader-helper";
+
+async function urlExists (url: string) {
+  try {
+    await axios.head(url);
+    return true;
+  } catch (error: any) {
+    if (error.response.status >= 400) {
+      return false;
+    }
+  }
+}
 
 let thread = class {
   no: string;
@@ -86,7 +98,8 @@ async function downloadFunction() {
   process.stdout.write(threadCount + " threads need to be downloaded; " + newThreads + " are new. ");
   if(threadCount == 0) return;
   do {
-    await downloadThread(downloads[0], "logs");
+    var exists = await urlExists(downloads[0]);
+    if(exists) await downloadThread(downloads[0], "logs");
     downloads.shift();
   } while(downloads[0] !== undefined);
   console.log("done.");

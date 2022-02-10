@@ -10,6 +10,7 @@
   "license": "MIT",
   "dependencies": {
     "@types/node": "^17.0.16",
+    "axios": "^0.25.0",
     "node-downloader-helper": "^2.0.1"
   }
 }

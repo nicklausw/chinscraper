@@ -90,8 +90,8 @@ async function downloadFunction() {
     downloads.shift();
   } while(downloads[0] !== undefined);
   console.log("done.");
+  setTimeout(downloadFunction, 60 * 1000);
 }
 
 downloadFunction();
-setInterval(downloadFunction, 60 * 1000); // 60 * 1000 milsec
 

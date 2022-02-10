@@ -48,7 +48,7 @@ if(!fs.existsSync("logs")) fs.mkdirSync("logs");
 
 async function downloadFunction() {
   // scrape pol
-  console.log("scraping pol...");
+  process.stdout.write("scraping pol...");
   await downloadThread("https://a.4cdn.org/pol/catalog.json", ".");
   var catalog = JSON.parse(fs.readFileSync("catalog.json", "utf-8"));
   var newThreads = 0;
@@ -83,7 +83,7 @@ async function downloadFunction() {
     }
   }
   var threadCount = newThreads + oldThreads;
-  console.log(threadCount + " threads need to be downloaded; " + newThreads + " are new.");
+  process.stdout.write(threadCount + " threads need to be downloaded; " + newThreads + " are new. ");
   if(threadCount == 0) return;
   do {
     await downloadThread(downloads[0], "logs");

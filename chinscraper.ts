@@ -37,7 +37,7 @@ const downloadThread = (name: string, dest: string) => {
 
 var list = new Array<any>();
 
-process.stdout.write("importing existing threads...");
+// import existing threads
 if(fs.existsSync("logs")) {
   var files = fs.readdirSync("logs");
   var threadCount = 0;
@@ -53,6 +53,8 @@ if(fs.existsSync("logs")) {
       threadCount--;
       fs.rmSync("logs/" + f);
     }
+    clearLine();
+    process.stdout.write("\rimporting " + threadCount + " of " + files.length + " threads..." + Math.round((threadCount / files.length) * 100) + "%");
   }
   if(threadCount > 0) {
     clearLine();
@@ -95,18 +97,24 @@ async function downloadFunction() {
           downloads.push("https://a.4cdn.org/pol/thread/" + t.no + ".json");
           newThreads++;
         }
-      } catch { }
+      } catch (error) {
+        if(!(error instanceof TypeError))
+          throw error;
+      }
     }
   }
   var threadCount = newThreads + oldThreads;
-  process.stdout.write(threadCount + " threads need to be downloaded; " + newThreads + " are new. ");
+  console.log(threadCount + " threads need to be downloaded; " + newThreads + " are new. ");
   if(threadCount == 0) return;
+  var downloadedThreads = 0;
   do {
     var exists = await urlExists(downloads[0]);
     if(exists) await downloadThread(downloads[0], "logs");
+    downloadedThreads++;
+    process.stdout.write("\rdownloading " + downloadedThreads + " of " + threadCount + " threads..." + Math.round((downloadedThreads / threadCount) * 100) + "%");
     downloads.shift();
   } while(downloads[0] !== undefined);
-  console.log("done.");
+  console.log(". done.");
   setTimeout(downloadFunction, 60 * 1000);
 }
 
@@ -135,7 +143,7 @@ if(mode === "scrape") {
     }
     list.shift();
     threadsDone++;
-    process.stdout.write("\rprocessed " + threadsDone + " out of " + totalThreads + " threads.");
+    process.stdout.write("\rprocessing " + threadsDone + " out of " + totalThreads + " threads..." + Math.round((threadsDone / totalThreads) * 100) + "%");
   } while (list[0] !== undefined);
   fs.writeFileSync("export.txt", output);
   console.log("\nwrote output to export.txt.");

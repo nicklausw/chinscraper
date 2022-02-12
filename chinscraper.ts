@@ -1,6 +1,9 @@
 import fs from "fs";
 import axios from "axios";
 import { DownloaderHelper } from "node-downloader-helper";
+import { htmlToText } from "html-to-text";
+
+const clearLine = () => process.stdout.write("\r" + ' '.repeat(process.stdout.columns) + "\r");
 
 async function urlExists (url: string) {
   try {
@@ -33,9 +36,8 @@ const downloadThread = (name: string, dest: string) => {
 }
 
 var list = new Array<any>();
-console.log("Scraper started");
 
-// import existing threads
+process.stdout.write("importing existing threads...");
 if(fs.existsSync("logs")) {
   var files = fs.readdirSync("logs");
   var threadCount = 0;
@@ -52,8 +54,10 @@ if(fs.existsSync("logs")) {
       fs.rmSync("logs/" + f);
     }
   }
-  if(threadCount > 0)
-    console.log("loaded " + threadCount + " existing threads.");
+  if(threadCount > 0) {
+    clearLine();
+    console.log("imported " + threadCount + " existing threads.");
+  }
 }
 
 if(!fs.existsSync("logs")) fs.mkdirSync("logs");
@@ -106,5 +110,35 @@ async function downloadFunction() {
   setTimeout(downloadFunction, 60 * 1000);
 }
 
-downloadFunction();
+if(process.argv.length != 3) {
+  console.log("input either scrape or export");
+  process.exit();
+}
 
+var mode = process.argv[2];
+if(mode === "scrape") {
+  downloadFunction();
+} else if(mode === "export") {
+  var output = "";
+  console.log("exporting data...");
+  var totalThreads = list.length;
+  var threadsDone = 0;
+  do {
+    var thisThread = JSON.parse(fs.readFileSync("logs/" + list[0].no + ".json", "utf-8")).posts;
+    for(var c = 0; c < list[0].replies; c++) {
+      // get rid of HTML and quotes
+      var newOut =  htmlToText(thisThread[c].com).replace(/[>][>](\d*)/, "").replace("\n", " ").trim();
+      do {
+        newOut = newOut.replace("  "," ");
+      } while(newOut.includes("  "));
+      output += newOut + "\n\n";
+    }
+    list.shift();
+    threadsDone++;
+    process.stdout.write("\rprocessed " + threadsDone + " out of " + totalThreads + " threads.");
+  } while (list[0] !== undefined);
+  fs.writeFileSync("export.txt", output);
+  console.log("\nwrote output to export.txt.");
+} else {
+  console.log("input either scrape or export");
+}

@@ -71,7 +71,14 @@ if(!fs.existsSync("logs")) fs.mkdirSync("logs");
 async function downloadFunction() {
   // scrape pol
   process.stdout.write("scraping pol...");
-  await downloadThread("https://a.4cdn.org/pol/catalog.json", ".");
+  // the catalog probably won't disappear, but it'll gladly give a 500 error.
+  var exists = await urlExists("https://a.4cdn.org/pol/catalog.json");
+  if(exists) await downloadThread("https://a.4cdn.org/pol/catalog.json", ".");
+  else {
+    console.log("couldn't get catalog.");
+    setTimeout(downloadFunction, 60 * 1000);
+    return;
+  }
   var catalog = JSON.parse(fs.readFileSync("catalog.json", "utf-8"));
   var newThreads = 0;
   var oldThreads = 0;

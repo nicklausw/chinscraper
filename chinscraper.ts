@@ -27,9 +27,15 @@ let thread = class {
 
 const downloadThread = (name: string, dest: string) => {
   return new Promise((resolve) => {
-    const dl = new DownloaderHelper(name, dest, {override: true});
+    const dl = new DownloaderHelper(name, dest,
+      {override: true,
+      retry: { maxRetries: 3, delay: 3000 },
+      httpRequestOptions: { timeout: 5000 }});
     dl.on("end", () => {
       resolve(null);
+    });
+    dl.on("retry", () => {
+      console.log("\nTrying that one again...");
     });
     dl.start();
   });

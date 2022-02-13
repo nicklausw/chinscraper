@@ -5,14 +5,12 @@ import { htmlToText } from "html-to-text";
 
 const clearLine = () => process.stdout.write("\r" + ' '.repeat(process.stdout.columns) + "\r");
 
-async function urlExists (url: string) {
+async function urlExists (url: string): Promise<boolean> {
   try {
     await axios.head(url);
     return true;
   } catch (error: any) {
-    if (error.response.status >= 400) {
-      return false;
-    }
+    return false;
   }
 }
 

@@ -35,6 +35,9 @@ const downloadThread = (name: string, dest: string) => {
     dl.on("retry", () => {
       console.log("\nTrying that one again...");
     });
+    dl.on("error", () => {
+      resolve(null);
+    })
     dl.start();
   });
 }

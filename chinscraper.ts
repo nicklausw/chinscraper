@@ -1,18 +1,7 @@
 import * as fs from "fs";
-import axios from "axios";
 import { DownloaderHelper } from "node-downloader-helper";
-import { htmlToText } from "html-to-text";
 
 const clearLine = () => process.stdout.write("\r" + ' '.repeat(process.stdout.columns) + "\r");
-
-async function urlExists (url: string): Promise<boolean> {
-  try {
-    await axios.head(url);
-    return true;
-  } catch (error: any) {
-    return false;
-  }
-}
 
 let thread = class {
   no: string;
@@ -24,21 +13,18 @@ let thread = class {
 }
 
 const downloadThread = (name: string, dest: string) => {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const dl = new DownloaderHelper(name, dest,
       {override: true,
-      retry: { maxRetries: 3, delay: 3000 },
+      retry: { maxRetries: 3, delay: 1000 * 20 },
       httpRequestOptions: { timeout: 5000 }});
     dl.on("end", () => {
       resolve(null);
     });
-    dl.on("retry", () => {
-      console.log("\nTrying that one again...");
+    dl.on("error", (error) => {
+      reject(error);
     });
-    dl.on("error", () => {
-      resolve(null);
-    })
-    dl.start();
+    dl.start().catch((error) => {  reject(error); });
   });
 }
 
@@ -60,7 +46,6 @@ if(fs.existsSync("logs")) {
       threadCount--;
       fs.rmSync("logs/" + f);
     }
-    clearLine();
     process.stdout.write("\rimporting " + threadCount + " of " + files.length + " threads..." + Math.round((threadCount / files.length) * 100) + "%");
   }
   if(threadCount > 0) {
@@ -75,9 +60,9 @@ async function downloadFunction() {
   // scrape pol
   process.stdout.write("scraping pol...");
   // the catalog probably won't disappear, but it'll gladly give a 500 error.
-  var exists = await urlExists("https://a.4cdn.org/pol/catalog.json");
-  if(exists) await downloadThread("https://a.4cdn.org/pol/catalog.json", ".");
-  else {
+  try {
+    await downloadThread("https://a.4cdn.org/pol/catalog.json", ".");
+  } catch {
     console.log("couldn't get catalog.");
     setTimeout(downloadFunction, 60 * 1000);
     return;
@@ -121,11 +106,15 @@ async function downloadFunction() {
   console.log(threadCount + " threads need to be downloaded; " + newThreads + " are new. ");
   if(threadCount == 0) return;
   var downloadedThreads = 0;
+  var errors = 0;
   do {
-    var exists = await urlExists(downloads[0]);
-    if(exists) await downloadThread(downloads[0], "logs");
+    try {
+      await downloadThread(downloads[0], "logs");
+    } catch { errors++; }
     downloadedThreads++;
-    process.stdout.write("\rdownloading " + downloadedThreads + " of " + threadCount + " threads..." + Math.round((downloadedThreads / threadCount) * 100) + "%");
+    var outString = "\rdownloading " + downloadedThreads + " of " + threadCount + " threads..." + Math.round((downloadedThreads / threadCount) * 100) + "%";
+    if(errors > 0) outString += " (" + errors + " error" + (errors > 1 ? "s" : "") + ")";
+    process.stdout.write(outString);
     downloads.shift();
   } while(downloads[0] !== undefined);
   console.log(". done.");
@@ -141,25 +130,36 @@ var mode = process.argv[2];
 if(mode === "scrape") {
   downloadFunction();
 } else if(mode === "export") {
-  var output = "";
   console.log("exporting data...");
   var totalThreads = list.length;
   var threadsDone = 0;
+  var writeStream = fs.createWriteStream("export.txt");
   do {
     var thisThread = JSON.parse(fs.readFileSync("logs/" + list[0].no + ".json", "utf-8")).posts;
     for(var c = 0; c < list[0].replies; c++) {
       // get rid of HTML and quotes
-      var newOut =  htmlToText(thisThread[c].com).replace(/[>][>](\d*)/, "").replace("\n", " ").trim();
+      var newOut = thisThread[c].com;
+      if(newOut === undefined) continue;
+      //console.log("OLD\n\n" + newOut);
+      newOut = newOut
+        .replaceAll("&#039;", "\'")
+        .replaceAll("&gt;",">")
+        .replaceAll("&quot;","\"")
+        .replaceAll("<br>","\n")
+        .replaceAll(/(>>)([0-9]*)\w+/gm, "")
+        .replaceAll(/<[^>]+>/g, "")
+        .trim();
+      //console.log("NEW\n\n" + newOut + "\n\n");
       do {
         newOut = newOut.replace("  "," ");
       } while(newOut.includes("  "));
-      output += newOut + "\n\n";
+      writeStream.write(newOut + "\n\n");
     }
     list.shift();
     threadsDone++;
     process.stdout.write("\rprocessing " + threadsDone + " out of " + totalThreads + " threads..." + Math.round((threadsDone / totalThreads) * 100) + "%");
   } while (list[0] !== undefined);
-  fs.writeFileSync("export.txt", output);
+  writeStream.end();
   console.log("\nwrote output to export.txt.");
 } else {
   console.log("input either scrape or export");

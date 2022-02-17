@@ -7,11 +7,16 @@ const clearLine = () => process.stdout.write("\r" + ' '.repeat(process.stdout.co
 
 let thread = class {
   no: string;
-  replies: number;
-  constructor(no: string, replies: number) {
+  replies: string;
+  constructor(no: string, replies: string) {
     this.no = no;
     this.replies = replies;
-  }
+   }
+}
+
+function getElement(s: string, left: string, right: string): string {
+  var location = s.indexOf(left) + left.length;
+  return s.substring(location, s.indexOf(right, location));
 }
 
 const downloadThread = (name: string, dest: string, newFileName: string) => {
@@ -35,52 +40,51 @@ var list = new Array<any>();
 
 async function downloadFunction() {
   process.stdout.write("scraping " + boardName + "...");
-  // the catalog probably won't disappear, but it'll gladly give a 500 error.
+  // the thread list probably won't disappear, but it'll gladly give a 500 error.
   try {
-    await downloadThread("https://a.4cdn.org/" + boardName + "/catalog.json", ".", "catalog_" + boardName + ".json");
+    await downloadThread("https://a.4cdn.org/" + boardName + "/threads.json", ".", "threads_" + boardName + ".json");
   } catch {
-    console.log("couldn't get catalog.");
+    console.log("couldn't get thread list.");
     setTimeout(downloadFunction, 60 * 1000);
     return;
   }
-  var catalog = JSON.parse(fs.readFileSync("catalog_" + boardName + ".json", "utf-8"));
+  // this effectively splits the list into threads
+  var threads = fs.readFileSync("threads_" + boardName + ".json", "utf-8").replaceAll("]},{","").split(",{");
   var newThreads = 0;
   var oldThreads = 0;
   var downloads = new Array<string>();
-  // go through the 10 pages of threads
-  for(var c = 0; c <= 10; c++) {
-    // go through the 20 possible threads
-    for(var d = 0; d <= 19; d++) {
-      try {
-        var t = new thread(catalog[c]["threads"][d].no, catalog[c]["threads"][d].replies);
-        // try to find thread in list
-        var found = false;
-        for(var e = 0; e < list.length; e++) {
-          if(list[e].no === t.no) {
-            found = true;
-            // same thread!
-            if(list[e].replies < t.replies) {
-              list[e].replies = t.replies;
-              oldThreads++;
-              downloads.push("https://a.4cdn.org/" + boardName + "/thread/" + t.no + ".json");
-              break;
-            }
-          }
-        }
-        if(found === false) {
-          list.push(t); 
+  // go through the threads
+  for(var c = 0; c < threads.length; c++) {
+    var no = getElement(threads[c], "\"no\":", ",");
+    var replies = getElement(threads[c], "\"replies\":", "}");
+    var t = new thread(no, replies);
+    // try to find thread in list
+    var found = false;
+    for(var e = 0; e < list.length; e++) {
+      if(list[e].no === t.no) {
+        found = true;
+        // same thread!
+        if(+list[e].replies < +t.replies) {
+          list[e].replies = t.replies;
+          oldThreads++;
           downloads.push("https://a.4cdn.org/" + boardName + "/thread/" + t.no + ".json");
-          newThreads++;
+          break;
         }
-      } catch (error) {
-        if(!(error instanceof TypeError))
-          throw error;
       }
     }
+    if(found === false) {
+      list.push(t);
+      downloads.push("https://a.4cdn.org/" + boardName + "/thread/" + t.no + ".json");
+      newThreads++;
+    }
   }
+
   var threadCount = newThreads + oldThreads;
   console.log(threadCount + (threadCount !== 1 ? " threads need " : " thread needs ") + "to be downloaded; " + newThreads + (newThreads !== 1 ? " are new." : " is new."));
-  if(threadCount == 0) return;
+  if(threadCount == 0) {
+    setTimeout(downloadFunction, 60 * 1000);
+    return;
+  }
   var downloadedThreads = 0;
   var errors = 0;
   do {
@@ -111,16 +115,12 @@ if(fs.existsSync("logs")) {
     var threadCount = 0;
     for(var c = 0; c < files.length; c++) {
       var f = files[c];
-      try {
-        threadCount++;
-        var thisThread = JSON.parse(fs.readFileSync("logs/" + boardName + "/" + f, "utf-8"));
-        var entry = new thread(thisThread.posts[0].no, thisThread.posts[0].replies);
-        list.push(entry);
-      } catch {
-        // bad thread
-        threadCount--;
-        fs.rmSync("logs/" + boardName + "/" + f);
-      }
+      threadCount++;
+      var thisThread = fs.readFileSync("logs/" + boardName + "/" + f, "utf-8");
+      var no = getElement(thisThread, "\"no\":", ",");
+      var replies = getElement(thisThread, "\"replies\":", ",");
+      var entry = new thread(no, replies);
+      list.push(entry);
       process.stdout.write("\rimporting " + threadCount + " of " + files.length + " threads..." + Math.round((threadCount / files.length) * 100) + "%");
     }
     if(threadCount > 0) {
@@ -147,10 +147,10 @@ if(mode === "scrape") {
   var threadsDone = 0;
   var writeStream = fs.createWriteStream("export_" + boardName + ".txt");
   do {
-    var thisThread = JSON.parse(fs.readFileSync("logs/" + boardName + "/" + list[0].no + ".json", "utf-8")).posts;
-    for(var c = 0; c < list[0].replies; c++) {
+    var thisThread2 = fs.readFileSync("logs/" + boardName + "/" + list[0].no + ".json", "utf-8").split("},{");
+    for(var c = 0; c < thisThread2.length; c++) {
       // get rid of HTML and quotes
-      var newOut = thisThread[c].com;
+      var newOut = getElement(thisThread2[c], "\"com\":\"", "\",");
       if(newOut === undefined) continue;
       newOut = newOut
         .replaceAll("&#039;", "\'")

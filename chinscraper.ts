@@ -138,6 +138,10 @@ if(mode === "scrape") {
   process.chdir("logs");
   downloadFunction();
 } else if(mode === "export") {
+  if(list.length === 0) {
+    console.log("nothing to export.");
+    process.exit();
+  }
   console.log("exporting data...");
   var totalThreads = list.length;
   var threadsDone = 0;

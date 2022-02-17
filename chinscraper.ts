@@ -105,7 +105,7 @@ async function downloadFunction() {
     process.stdout.write(outString);
     downloads.shift();
   } while(downloads[0] !== undefined);
-  await fs.writeFile("savedthreads_" + boardName + ".txt", JSON.stringify(list), () => { });
+  await fs.writeFile("savedthreads_" + boardName + ".json", JSON.stringify(list), () => { });
   console.log(". done.");
   setTimeout(downloadFunction, 60 * 1000);
 }
@@ -120,7 +120,7 @@ boardName = process.argv[3];
 // import existing threads
 if(fs.existsSync("logs")) {
   if(fs.existsSync("logs/savedthreads_" + boardName + ".txt")) {
-    list = JSON.parse(fs.readFileSync("logs/savedthreads_" + boardName + ".txt", "utf-8"));
+    list = JSON.parse(fs.readFileSync("logs/savedthreads_" + boardName + ".json", "utf-8"));
     console.log("imported " + list.length + " existing threads.");
   }
 }

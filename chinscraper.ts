@@ -1,7 +1,17 @@
 import * as fs from "fs";
 import { DownloaderHelper } from "node-downloader-helper";
 
+// thread list
+var list = new Array<any>();
 var boardName = "";
+var fullyLoaded = false;
+process.on("SIGINT", () => { // ctrl+c
+  if(fullyLoaded) {
+    fs.writeFileSync("savedthreads_" + boardName + ".json", JSON.stringify(list));
+    console.log("overwrote saved threads file.");
+  }
+  process.exit();
+});
 
 const clearLine = () => process.stdout.write("\r" + ' '.repeat(process.stdout.columns) + "\r");
 
@@ -35,8 +45,6 @@ const downloadThread = (name: string, dest: string, newFileName: string) => {
     dl.start().catch((error) => { reject(error); });
   });
 }
-
-var list = new Array<any>();
 
 async function downloadFunction() {
   process.stdout.write("scraping " + boardName + "...");
@@ -97,6 +105,7 @@ async function downloadFunction() {
     process.stdout.write(outString);
     downloads.shift();
   } while(downloads[0] !== undefined);
+  await fs.writeFile("savedthreads_" + boardName + ".txt", JSON.stringify(list), () => { });
   console.log(". done.");
   setTimeout(downloadFunction, 60 * 1000);
 }
@@ -110,23 +119,9 @@ boardName = process.argv[3];
 
 // import existing threads
 if(fs.existsSync("logs")) {
-  if(fs.existsSync("logs/" + boardName)) {
-    var files = fs.readdirSync("logs/" + boardName);
-    var threadCount = 0;
-    for(var c = 0; c < files.length; c++) {
-      var f = files[c];
-      threadCount++;
-      var thisThread = fs.readFileSync("logs/" + boardName + "/" + f, "utf-8");
-      var no = getElement(thisThread, "\"no\":", ",");
-      var replies = getElement(thisThread, "\"replies\":", ",");
-      var entry = new thread(no, replies);
-      list.push(entry);
-      process.stdout.write("\rimporting " + threadCount + " of " + files.length + " threads..." + Math.round((threadCount / files.length) * 100) + "%");
-    }
-    if(threadCount > 0) {
-      clearLine();
-      console.log("imported " + threadCount + " existing threads.");
-    }
+  if(fs.existsSync("logs/savedthreads_" + boardName + ".txt")) {
+    list = JSON.parse(fs.readFileSync("logs/savedthreads_" + boardName + ".txt", "utf-8"));
+    console.log("imported " + list.length + " existing threads.");
   }
 }
 
@@ -135,6 +130,7 @@ if(!fs.existsSync("logs/" + boardName)) fs.mkdirSync("logs/" + boardName);
 
 var mode = process.argv[2];
 if(mode === "scrape") {
+  fullyLoaded = true;
   process.chdir("logs");
   downloadFunction();
 } else if(mode === "export") {

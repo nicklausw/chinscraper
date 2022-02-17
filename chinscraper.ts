@@ -18,7 +18,7 @@ const downloadThread = (name: string, dest: string, newFileName: string) => {
   return new Promise((resolve, reject) => {
     const dl = new DownloaderHelper(name, dest,
       {override: true,
-      retry: { maxRetries: 3, delay: 1000 * 20 },
+      retry: { maxRetries: 3, delay: 1000 * 2 },
       httpRequestOptions: { timeout: 5000 },
       fileName: newFileName });
     dl.on("end", () => {
@@ -27,7 +27,7 @@ const downloadThread = (name: string, dest: string, newFileName: string) => {
     dl.on("error", (error) => {
       reject(error);
     });
-    dl.start().catch((error) => {  reject(error); });
+    dl.start().catch((error) => { reject(error); });
   });
 }
 

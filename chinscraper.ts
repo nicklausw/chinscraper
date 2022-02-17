@@ -79,7 +79,7 @@ async function downloadFunction() {
     }
   }
   var threadCount = newThreads + oldThreads;
-  console.log(threadCount + " threads need to be downloaded; " + newThreads + " are new. ");
+  console.log(threadCount + (threadCount !== 1 ? " threads need " : " thread needs ") + "to be downloaded; " + newThreads + (newThreads !== 1 ? " are new." : " is new."));
   if(threadCount == 0) return;
   var downloadedThreads = 0;
   var errors = 0;

@@ -153,6 +153,7 @@ if(mode === "scrape") {
       var newOut = getElement(thisThread2[c], "\"com\":\"", "\",");
       if(newOut === undefined) continue;
       newOut = newOut
+        .replaceAll("\\/", "/")
         .replaceAll("&#039;", "\'")
         .replaceAll("&gt;",">")
         .replaceAll("&quot;","\"")

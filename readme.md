@@ -1,6 +1,8 @@
 # chinscraper
 Downloads threads from 4chan.
 
+![Demonstration](demonstration.jpg)
+
 ## usage
 ```
 npm start [scrape|export] [board name]

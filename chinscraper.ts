@@ -119,7 +119,7 @@ boardName = process.argv[3];
 
 // import existing threads
 if(fs.existsSync("logs")) {
-  if(fs.existsSync("logs/savedthreads_" + boardName + ".txt")) {
+  if(fs.existsSync("logs/savedthreads_" + boardName + ".json")) {
     list = JSON.parse(fs.readFileSync("logs/savedthreads_" + boardName + ".json", "utf-8"));
     console.log("imported " + list.length + " existing threads.");
   }
@@ -143,6 +143,11 @@ if(mode === "scrape") {
   var threadsDone = 0;
   var writeStream = fs.createWriteStream("export_" + boardName + ".txt");
   do {
+    if(!fs.existsSync("logs/" + boardName + "/" + list[0].no + ".json")) {
+      list.shift();
+      threadsDone++;
+      continue;
+    }
     var thisThread2 = fs.readFileSync("logs/" + boardName + "/" + list[0].no + ".json", "utf-8").split("},{");
     for(var c = 0; c < thisThread2.length; c++) {
       // get rid of HTML and quotes
